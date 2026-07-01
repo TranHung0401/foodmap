@@ -1,6 +1,6 @@
 "use client";
 
-import { Issue, IssueStatus } from "@/types/issue";
+import { Issue, BookingStatus } from "@/types/issue";
 import { IssueCard } from "./IssueCard";
 
 interface AreaSectionProps {
@@ -8,7 +8,7 @@ interface AreaSectionProps {
   issues: Issue[];
   expandedIssueIds: Record<string, boolean>;
   onToggleIssue: (id: string) => void;
-  onSave: (id: string, newStatus: IssueStatus, newNotes: string, newImages: string[]) => void;
+  onSave: (id: string, newStatus: BookingStatus, newNotes: string, newImages: string[]) => void;
 }
 
 function groupByPage(issues: Issue[]) {

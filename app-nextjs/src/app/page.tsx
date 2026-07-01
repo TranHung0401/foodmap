@@ -7,7 +7,7 @@ import { FilterBar, FilterState } from "@/components/dashboard/FilterBar";
 import { AreaSection } from "@/components/dashboard/AreaSection";
 import { AddPlaceDrawer } from "@/components/dashboard/AddPlaceDrawer";
 import { mockIssues } from "@/lib/mock-issues";
-import { Issue, IssueStatus, RestaurantSatisfaction, BookingStatus } from "@/types/issue";
+import { Issue, RestaurantSatisfaction, BookingStatus } from "@/types/issue";
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ export default function ReviewDashboardPage() {
     }
   };
 
-  const handleSaveIssue = async (id: string, newStatus: IssueStatus, newNotes: string, newImages: string[]) => {
+  const handleSaveIssue = async (id: string, newStatus: BookingStatus, newNotes: string, newImages: string[]) => {
     const updatedAt = new Date().toISOString();
 
     const nextIssues = issues.map((issue) =>

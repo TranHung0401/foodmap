@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Issue, IssueStatus } from "@/types/issue";
+import { Issue, BookingStatus } from "@/types/issue";
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -54,11 +54,11 @@ interface IssueCardProps {
   issue: Issue;
   isOpen: boolean;
   onToggle: () => void;
-  onSave: (id: string, newStatus: IssueStatus, newNotes: string, newImages: string[]) => void;
+  onSave: (id: string, newStatus: BookingStatus, newNotes: string, newImages: string[]) => void;
 }
 
 export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
-  const [devStatus, setDevStatus] = useState<IssueStatus>(issue.status);
+  const [devStatus, setDevStatus] = useState<BookingStatus>(issue.status);
   const [devNotes, setDevNotes] = useState(issue.devNotes ?? "");
   const [devImages, setDevImages] = useState(issue.images?.join(", ") ?? "");
   const [savedMsg, setSavedMsg] = useState(false);
