@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export function Hero() {
   return (
@@ -13,17 +13,22 @@ export function Hero() {
           tìm kiếm địa điểm phù hợp nhất với bạn.
         </p>
         <div className="mt-10 flex flex-col sm:flex-row gap-4">
-          <Button asChild size="lg" className="rounded-full px-8 text-base">
-            <Link href="/kham-pha">Khám Phá Ngay</Link>
-          </Button>
-          <Button
-            asChild
-            size="lg"
-            variant="outline"
-            className="rounded-full px-8 text-base bg-background"
+          <Link
+            href="/kham-pha"
+            className={buttonVariants({ size: "lg", className: "rounded-full px-8 text-base" })}
           >
-            <Link href="/bang-xep-hang">Xem Bảng Xếp Hạng</Link>
-          </Button>
+            Khám Phá Ngay
+          </Link>
+          <Link
+            href="/bang-xep-hang"
+            className={buttonVariants({
+              size: "lg",
+              variant: "outline",
+              className: "rounded-full px-8 text-base bg-background",
+            })}
+          >
+            Xem Bảng Xếp Hạng
+          </Link>
         </div>
       </div>
       
