@@ -146,7 +146,7 @@ export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
                   <span style={{ fontSize: 12, color: "#666" }}>Đặt bàn:</span>
                   <select
                     value={devStatus}
-                    onChange={(e) => setDevStatus(e.target.value as IssueStatus)}
+                    onChange={(e) => setDevStatus(e.target.value as BookingStatus)}
                     style={{ fontSize: 13, padding: "4px 8px", border: "1px solid #ddd", borderRadius: 6, background: "#fff", color: "#222", fontFamily: "inherit", cursor: "pointer" }}
                   >
                     <option value="Đặt bàn">Đặt bàn</option>
