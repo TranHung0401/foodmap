@@ -122,7 +122,7 @@ export default function ReviewDashboardPage() {
         .subscribe();
 
       return () => {
-        supabase.removeChannel(channel);
+        supabase?.removeChannel(channel);
       };
     }
   }, []);
