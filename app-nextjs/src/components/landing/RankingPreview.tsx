@@ -1,0 +1,74 @@
+import Link from "next/link";
+import { Trophy, Star, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
+const mockRanking = [
+  { rank: 1, name: "Bún Bò Huế Oanh", category: "Món nước", rating: 4.9, reviews: 3420 },
+  { rank: 2, name: "Phở Thìn Lò Đúc", category: "Món nước", rating: 4.8, reviews: 2890 },
+  { rank: 3, name: "Cơm Tấm Ba Ghiền", category: "Cơm", rating: 4.7, reviews: 2150 },
+  { rank: 4, name: "Bánh Mì Huynh Hoa", category: "Ăn vặt", rating: 4.7, reviews: 1980 },
+  { rank: 5, name: "Cà phê Muối Chú Long", category: "Cà phê", rating: 4.6, reviews: 1540 },
+];
+
+export function RankingPreview() {
+  return (
+    <section className="py-20">
+      <div className="container mx-auto px-4 max-w-4xl">
+        <div className="flex flex-col items-center text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 text-amber-600 mb-4">
+            <Trophy className="w-8 h-8" />
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight mb-4">Bảng Xếp Hạng Top 10</h2>
+          <p className="text-muted-foreground text-lg max-w-2xl">
+            Khám phá những địa điểm được đánh giá cao nhất trên FoodMap. 
+            Bảng xếp hạng được cập nhật liên tục dựa trên đánh giá thực tế của cộng đồng.
+          </p>
+        </div>
+
+        <Card className="overflow-hidden border-border/50">
+          <div className="divide-y divide-border/50">
+            {mockRanking.map((place) => (
+              <Link 
+                key={place.rank} 
+                href={`/dia-diem/${place.rank}`}
+                className="flex items-center p-4 sm:p-6 hover:bg-muted/50 transition-colors group"
+              >
+                <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full font-bold mr-4 sm:mr-6
+                  ${place.rank === 1 ? 'bg-amber-400 text-white' : 
+                    place.rank === 2 ? 'bg-slate-300 text-slate-800' : 
+                    place.rank === 3 ? 'bg-amber-600 text-white' : 'bg-muted text-muted-foreground'}
+                ">
+                  {place.rank}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold truncate group-hover:text-primary transition-colors">
+                    {place.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{place.category}</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-6 ml-4">
+                  <div className="flex items-center text-sm">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400 mr-1" />
+                    <span className="font-medium">{place.rating}</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground hidden sm:block">
+                    {place.reviews} đánh giá
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        <div className="mt-8 text-center">
+          <Button asChild variant="outline" className="rounded-full px-8">
+            <Link href="/bang-xep-hang">
+              Xem toàn bộ bảng xếp hạng <ArrowRight className="w-4 h-4 ml-2" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
