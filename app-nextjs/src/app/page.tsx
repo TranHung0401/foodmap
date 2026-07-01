@@ -66,8 +66,21 @@ export default function ReviewDashboardPage() {
   const [expandedIssueIds, setExpandedIssueIds] = useState<Record<string, boolean>>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Load Data from Supabase if configured, otherwise fall back to local json
+  // Load Data
   useEffect(() => {
+    // 1. Try loading from LocalStorage first if not in Supabase mode
+    if (!isSupabaseConfigured) {
+      const localData = localStorage.getItem("foodmap_places");
+      if (localData) {
+        try {
+          setIssues(JSON.parse(localData));
+        } catch (e) {
+          console.error("Lỗi đọc dữ liệu từ LocalStorage:", e);
+        }
+      }
+    }
+
+    // 2. Load from Supabase if configured
     async function loadData() {
       if (isSupabaseConfigured && supabase) {
         try {
@@ -151,8 +164,12 @@ export default function ReviewDashboardPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Save changes locally to issues.json file
+  // Save changes locally to issues.json file (local development only)
   const saveToLocalSourceFile = async (updatedIssues: Issue[]) => {
+    if (typeof window !== "undefined" && window.location.hostname !== "localhost") {
+      // Don't call API on production static site hosting (like GitHub Pages)
+      return;
+    }
     try {
       const res = await fetch("/api/save", {
         method: "POST",
@@ -195,7 +212,8 @@ export default function ReviewDashboardPage() {
         console.error("Lỗi lưu Supabase:", err);
       }
     } else {
-      // Standalone mode: write to issues.json file
+      // Standalone mode: save to LocalStorage and try saving to file (if localhost)
+      localStorage.setItem("foodmap_places", JSON.stringify(nextIssues));
       await saveToLocalSourceFile(nextIssues);
     }
   };
@@ -264,7 +282,8 @@ export default function ReviewDashboardPage() {
         console.error("Lỗi thêm quán lên Supabase:", err);
       }
     } else {
-      // Standalone mode: write to issues.json file
+      // Standalone mode: save to LocalStorage and try saving to file (if localhost)
+      localStorage.setItem("foodmap_places", JSON.stringify(nextIssues));
       await saveToLocalSourceFile(nextIssues);
     }
 
@@ -288,7 +307,12 @@ export default function ReviewDashboardPage() {
             </span>
           ) : (
             <span>
-              <b style={{ color: "#38bdf8" }}>LocalStorage (Offline) đang hoạt động</b>. Khi bạn chạy thử ở Local máy tính, mọi thao tác Lưu hoặc Thêm quán mới sẽ ghi đè trực tiếp vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>.
+              <b style={{ color: "#38bdf8" }}>LocalStorage (Offline) đang hoạt động</b>.{" "}
+              {typeof window !== "undefined" && window.location.hostname === "localhost" ? (
+                <span>Khi bạn chạy thử ở Local máy tính, thao tác chỉnh sửa/thêm quán mới sẽ được ghi đè trực tiếp vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>.</span>
+              ) : (
+                <span>Do chạy ở môi trường GitHub Pages tĩnh, dữ liệu sẽ được lưu tạm an toàn trong trình duyệt (LocalStorage) của bạn.</span>
+              )}
             </span>
           )}
         </div>
