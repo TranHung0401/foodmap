@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { StatsSection } from "@/components/dashboard/StatsSection";
 import { FilterBar, FilterState } from "@/components/dashboard/FilterBar";
 import { AreaSection } from "@/components/dashboard/AreaSection";
 import { AddPlaceDrawer } from "@/components/dashboard/AddPlaceDrawer";
 import { mockIssues } from "@/lib/mock-issues";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { Issue, RestaurantSatisfaction, BookingStatus } from "@/types/issue";
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
@@ -55,7 +56,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ReviewDashboardPage() {
-  // Load data directly from compiled mockIssues (which reads from issues.json)
   const [issues, setIssues] = useState<Issue[]>(mockIssues);
   const [filters, setFilters] = useState<FilterState>({
     area: "Tất cả",
@@ -65,6 +65,67 @@ export default function ReviewDashboardPage() {
   });
   const [expandedIssueIds, setExpandedIssueIds] = useState<Record<string, boolean>>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Load Data from Supabase if configured, otherwise fall back to local json
+  useEffect(() => {
+    async function loadData() {
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from("foodmap_places")
+            .select("*")
+            .order("number", { ascending: false });
+
+          if (error) throw error;
+
+          if (data && data.length > 0) {
+            setIssues(data as Issue[]);
+          } else {
+            // Seed database table if empty
+            const { error: seedError } = await supabase.from("foodmap_places").insert(mockIssues);
+            if (!seedError) {
+              setIssues(mockIssues);
+            }
+          }
+        } catch (err) {
+          console.error("Lỗi kết nối Supabase, chạy chế độ tĩnh:", err);
+        }
+      }
+    }
+    loadData();
+  }, []);
+
+  // Supabase Real-time Sync (for multi-device updates)
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      const channel = supabase
+        .channel("realtime-foodmap")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "foodmap_places" },
+          (payload) => {
+            if (payload.eventType === "INSERT") {
+              setIssues((prev) => {
+                const exists = prev.some((i) => i.id === payload.new.id);
+                if (exists) return prev;
+                return [payload.new as Issue, ...prev];
+              });
+            } else if (payload.eventType === "UPDATE") {
+              setIssues((prev) =>
+                prev.map((i) => (i.id === payload.new.id ? (payload.new as Issue) : i))
+              );
+            } else if (payload.eventType === "DELETE") {
+              setIssues((prev) => prev.filter((i) => i.id !== payload.old.id));
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, []);
 
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
@@ -118,8 +179,25 @@ export default function ReviewDashboardPage() {
     // 1. Update client state
     setIssues(nextIssues);
 
-    // 2. Call API to overwrite src/lib/issues.json
-    await saveToLocalSourceFile(nextIssues);
+    // 2. Sync
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from("foodmap_places")
+          .update({
+            status: newStatus,
+            devNotes: newNotes,
+            images: newImages,
+            updatedAt,
+          })
+          .eq("id", id);
+      } catch (err) {
+        console.error("Lỗi lưu Supabase:", err);
+      }
+    } else {
+      // Standalone mode: write to issues.json file
+      await saveToLocalSourceFile(nextIssues);
+    }
   };
 
   const handleToggleIssue = (id: string) => {
@@ -178,8 +256,17 @@ export default function ReviewDashboardPage() {
     // 1. Update client state
     setIssues(nextIssues);
 
-    // 2. Call API to overwrite src/lib/issues.json
-    await saveToLocalSourceFile(nextIssues);
+    // 2. Sync
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from("foodmap_places").insert([createdItem]);
+      } catch (err) {
+        console.error("Lỗi thêm quán lên Supabase:", err);
+      }
+    } else {
+      // Standalone mode: write to issues.json file
+      await saveToLocalSourceFile(nextIssues);
+    }
 
     // Scroll to the newly added place
     setTimeout(() => {
@@ -189,12 +276,21 @@ export default function ReviewDashboardPage() {
 
   return (
     <div style={{ background: "#f5f5f5", minHeight: "100vh", fontFamily: "-apple-system,'Segoe UI',Roboto,Arial,sans-serif", fontSize: 14.5, lineHeight: 1.55, color: "#111" }}>
-      <DashboardHeader isCloudActive={false} />
+      <DashboardHeader isCloudActive={isSupabaseConfigured} />
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "18px 22px 70px" }}>
         {/* Dev hint */}
         <div style={{ background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#ccc", borderRadius: 10, padding: "10px 14px", fontSize: 13, margin: "14px 0" }}>
-          <b style={{ color: "#fff" }}>Quy trình cập nhật tĩnh (Static Workflow):</b> Khi chạy thử ở máy tính (Local), mỗi lần bạn bấm <b style={{ color: "#fff" }}>Lưu</b> hoặc <b style={{ color: "#fff" }}>Thêm quán mới</b>, dữ liệu sẽ tự động ghi đè thẳng vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>. Sau khi chỉnh sửa xong, chỉ cần push code lên GitHub, trang GitHub Pages của bạn sẽ hiển thị đầy đủ dữ liệu mới trên cả điện thoại!
+          <b style={{ color: "#fff" }}>Chế độ hoạt động:</b>{" "}
+          {isSupabaseConfigured ? (
+            <span>
+              <b style={{ color: "#4ade80" }}>Cloud Sync (Supabase) đang hoạt động</b>. Mọi thay đổi bạn thực hiện sẽ được đồng bộ thời gian thực đa thiết bị (cả trên Điện thoại và Máy tính).
+            </span>
+          ) : (
+            <span>
+              <b style={{ color: "#38bdf8" }}>LocalStorage (Offline) đang hoạt động</b>. Khi bạn chạy thử ở Local máy tính, mọi thao tác Lưu hoặc Thêm quán mới sẽ ghi đè trực tiếp vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>.
+            </span>
+          )}
         </div>
 
         {/* Stats */}
