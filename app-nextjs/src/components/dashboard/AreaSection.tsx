@@ -9,6 +9,9 @@ interface AreaSectionProps {
   expandedIssueIds: Record<string, boolean>;
   onToggleIssue: (id: string) => void;
   onSave: (id: string, newStatus: BookingStatus, newNotes: string, newImages: string[]) => void;
+  onDelete: (id: string) => void;
+  allIssues: Issue[];
+  onNavigateToIssue: (id: string) => void;
 }
 
 function groupByPage(issues: Issue[]) {
@@ -20,7 +23,16 @@ function groupByPage(issues: Issue[]) {
   return map;
 }
 
-export function AreaSection({ area, issues, expandedIssueIds, onToggleIssue, onSave }: AreaSectionProps) {
+export function AreaSection({
+  area,
+  issues,
+  expandedIssueIds,
+  onToggleIssue,
+  onSave,
+  onDelete,
+  allIssues,
+  onNavigateToIssue,
+}: AreaSectionProps) {
   const byPage = groupByPage(issues);
 
   return (
@@ -95,6 +107,9 @@ export function AreaSection({ area, issues, expandedIssueIds, onToggleIssue, onS
               isOpen={!!expandedIssueIds[issue.id]}
               onToggle={() => onToggleIssue(issue.id)}
               onSave={onSave}
+              onDelete={onDelete}
+              issues={allIssues}
+              onNavigateToIssue={onNavigateToIssue}
             />
           ))}
         </div>

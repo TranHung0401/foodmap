@@ -65,6 +65,7 @@ export default function ReviewDashboardPage() {
   });
   const [expandedIssueIds, setExpandedIssueIds] = useState<Record<string, boolean>>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isLocalhost, setIsLocalhost] = useState(false);
 
   // Load Data
   useEffect(() => {
@@ -108,6 +109,11 @@ export default function ReviewDashboardPage() {
     loadData();
   }, []);
 
+  // Detect localhost for hydration-safe rendering
+  useEffect(() => {
+    setIsLocalhost(window.location.hostname === "localhost");
+  }, []);
+
   // Supabase Real-time Sync (for multi-device updates)
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
@@ -143,7 +149,7 @@ export default function ReviewDashboardPage() {
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
       if (filters.area !== "Tất cả" && issue.area !== filters.area) return false;
-      if (filters.group !== "Tất cả" && !issue.groupType.includes(filters.group)) return false;
+      if (filters.group !== "Tất cả" && (!issue.groupType || !issue.groupType.includes(filters.group))) return false;
       if (filters.priority !== "Tất cả" && issue.priority !== filters.priority) return false;
       if (filters.status !== "Tất cả" && issue.status !== filters.status) return false;
       return true;
@@ -199,7 +205,7 @@ export default function ReviewDashboardPage() {
     // 2. Sync
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase
+        const { error } = await supabase
           .from("foodmap_places")
           .update({
             status: newStatus,
@@ -208,6 +214,10 @@ export default function ReviewDashboardPage() {
             updatedAt,
           })
           .eq("id", id);
+        if (error) {
+          console.error("Lỗi lưu Supabase:", error);
+          alert("Lỗi lưu dữ liệu: " + error.message);
+        }
       } catch (err) {
         console.error("Lỗi lưu Supabase:", err);
       }
@@ -277,7 +287,11 @@ export default function ReviewDashboardPage() {
     // 2. Sync
     if (isSupabaseConfigured && supabase) {
       try {
-        await supabase.from("foodmap_places").insert([createdItem]);
+        const { error } = await supabase.from("foodmap_places").insert([createdItem]);
+        if (error) {
+          console.error("Lỗi thêm quán lên Supabase:", error);
+          alert("Lỗi thêm địa điểm: " + error.message);
+        }
       } catch (err) {
         console.error("Lỗi thêm quán lên Supabase:", err);
       }
@@ -293,8 +307,33 @@ export default function ReviewDashboardPage() {
     }, 300);
   };
 
+  const handleDeleteIssue = async (id: string) => {
+    const nextIssues = issues.filter((issue) => issue.id !== id);
+
+    // 1. Update client state
+    setIssues(nextIssues);
+
+    // 2. Sync
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { error } = await supabase.from("foodmap_places").delete().eq("id", id);
+        if (error) {
+          console.error("Lỗi xóa trên Supabase:", error);
+          alert("Lỗi xóa địa điểm: " + error.message);
+        }
+      } catch (err) {
+        console.error("Lỗi xóa Supabase:", err);
+      }
+    } else {
+      // Standalone mode: save to LocalStorage and try saving to file (if localhost)
+      localStorage.setItem("foodmap_places", JSON.stringify(nextIssues));
+      await saveToLocalSourceFile(nextIssues);
+    }
+  };
+
+
   return (
-    <div style={{ background: "#f5f5f5", minHeight: "100vh", fontFamily: "-apple-system,'Segoe UI',Roboto,Arial,sans-serif", fontSize: 14.5, lineHeight: 1.55, color: "#111" }}>
+    <div suppressHydrationWarning style={{ background: "#f5f5f5", minHeight: "100vh", fontFamily: "-apple-system,'Segoe UI',Roboto,Arial,sans-serif", fontSize: 14.5, lineHeight: 1.55, color: "#111" }}>
       <DashboardHeader isCloudActive={isSupabaseConfigured} />
 
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "18px 22px 70px" }}>
@@ -308,11 +347,10 @@ export default function ReviewDashboardPage() {
           ) : (
             <span>
               <b style={{ color: "#38bdf8" }}>LocalStorage (Offline) đang hoạt động</b>.{" "}
-              {typeof window !== "undefined" && window.location.hostname === "localhost" ? (
-                <span>Khi bạn chạy thử ở Local máy tính, thao tác chỉnh sửa/thêm quán mới sẽ được ghi đè trực tiếp vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>.</span>
-              ) : (
-                <span>Do chạy ở môi trường GitHub Pages tĩnh, dữ liệu sẽ được lưu tạm an toàn trong trình duyệt (LocalStorage) của bạn.</span>
-              )}
+              {isLocalhost
+                ? <span>Khi bạn chạy thử ở Local máy tính, thao tác chỉnh sửa/thêm quán mới sẽ được ghi đè trực tiếp vào file mã nguồn <code style={{ color: "#38bdf8", background: "#222", padding: "2px 5px", borderRadius: 4 }}>issues.json</code>.</span>
+                : <span>Do chạy ở môi trường GitHub Pages tĩnh, dữ liệu sẽ được lưu tạm an toàn trong trình duyệt (LocalStorage) của bạn.</span>
+              }
             </span>
           )}
         </div>
@@ -330,7 +368,7 @@ export default function ReviewDashboardPage() {
 
         {/* Summary table */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "22px 0 8px" }}>
-          <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".06em", color: "#888", fontWeight: 700 }}>Tổng quan địa điểm</div>
+          <div className="responsive-table-title" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".06em", color: "#888", fontWeight: 700 }}>Tổng quan địa điểm</div>
           <button
             onClick={() => setIsDrawerOpen(true)}
             style={{
@@ -352,41 +390,62 @@ export default function ReviewDashboardPage() {
           </button>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 11, overflow: "hidden", marginBottom: 22 }}>
-          <thead>
-            <tr>
-              {["#", "Quận", "Tên quán", "Nhận xét nổi bật", "Phân loại", "Hài lòng", "Đặt bàn"].map((h) => (
-                <th key={h} style={{ background: "#f9f9f9", textAlign: "left", fontSize: 11.5, color: "#555", padding: "9px 12px", textTransform: "uppercase", letterSpacing: ".04em", fontWeight: 700, borderBottom: "1px solid #e5e5e5" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredIssues.map((issue) => (
-              <tr
-                key={issue.id}
-                onClick={() => handleRowClick(issue.id)}
-                style={{ cursor: "pointer", borderTop: "1px solid #e5e5e5" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <td style={{ padding: "9px 12px", fontWeight: 700, color: "#111", whiteSpace: "nowrap" }}>#{issue.number}</td>
-                <td style={{ padding: "9px 12px" }}>{issue.area}</td>
-                <td style={{ padding: "9px 12px" }}>{issue.page}</td>
-                <td style={{ padding: "9px 12px" }}>{issue.title}</td>
-                <td style={{ padding: "9px 12px" }}>
-                  {issue.groupType.split(",").map((g) => g.trim()).filter(Boolean).map((g) => <GroupBadge key={g} group={g} />)}
-                </td>
-                <td style={{ padding: "9px 12px" }}><PrioBadge priority={issue.priority} /></td>
-                <td style={{ padding: "9px 12px" }}><StatusBadge status={issue.status} /></td>
-              </tr>
-            ))}
-            {filteredIssues.length === 0 && (
+        <div className="responsive-table-container">
+          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #e5e5e5", borderRadius: 11, overflow: "hidden" }}>
+            <thead>
               <tr>
-                <td colSpan={7} style={{ textAlign: "center", color: "#888", padding: 30 }}>Không có quán ăn nào phù hợp với bộ lọc.</td>
+                {["#", "Quận", "Tên quán", "Nhận xét nổi bật", "Phân loại", "Hài lòng", "Đặt bàn"].map((h) => {
+                  const isExtra = ["Nhận xét nổi bật", "Phân loại", "Hài lòng", "Đặt bàn"].includes(h);
+                  return (
+                    <th
+                      key={h}
+                      className={isExtra ? "hide-on-mobile" : ""}
+                      style={{
+                        background: "#f9f9f9",
+                        textAlign: "left",
+                        fontSize: 11.5,
+                        color: "#555",
+                        padding: "9px 12px",
+                        textTransform: "uppercase",
+                        letterSpacing: ".04em",
+                        fontWeight: 700,
+                        borderBottom: "1px solid #e5e5e5",
+                      }}
+                    >
+                      {h}
+                    </th>
+                  );
+                })}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredIssues.map((issue) => (
+                <tr
+                  key={issue.id}
+                  onClick={() => handleRowClick(issue.id)}
+                  style={{ cursor: "pointer", borderTop: "1px solid #e5e5e5" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <td style={{ padding: "9px 12px", fontWeight: 700, color: "#111", whiteSpace: "nowrap" }}>#{issue.number}</td>
+                  <td style={{ padding: "9px 12px" }}>{issue.area}</td>
+                  <td style={{ padding: "9px 12px" }}>{issue.page}</td>
+                  <td className="hide-on-mobile" style={{ padding: "9px 12px" }}>{issue.title}</td>
+                  <td className="hide-on-mobile" style={{ padding: "9px 12px" }}>
+                    {issue.groupType ? issue.groupType.split(",").map((g) => g.trim()).filter(Boolean).map((g) => <GroupBadge key={g} group={g} />) : null}
+                  </td>
+                  <td className="hide-on-mobile" style={{ padding: "9px 12px" }}><PrioBadge priority={issue.priority} /></td>
+                  <td className="hide-on-mobile" style={{ padding: "9px 12px" }}><StatusBadge status={issue.status} /></td>
+                </tr>
+              ))}
+              {filteredIssues.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: "center", color: "#888", padding: 30 }}>Không có quán ăn nào phù hợp với bộ lọc.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Detail cards grouped by area */}
         <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: ".05em", color: "#888", fontWeight: 700, margin: "22px 0 8px" }}>Chi tiết theo Quận & Địa điểm</div>
@@ -398,6 +457,9 @@ export default function ReviewDashboardPage() {
             expandedIssueIds={expandedIssueIds}
             onToggleIssue={handleToggleIssue}
             onSave={handleSaveIssue}
+            onDelete={handleDeleteIssue}
+            allIssues={issues}
+            onNavigateToIssue={handleRowClick}
           />
         ))}
 
@@ -415,6 +477,7 @@ export default function ReviewDashboardPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onAdd={handleAddPlace}
+        issues={issues}
       />
     </div>
   );

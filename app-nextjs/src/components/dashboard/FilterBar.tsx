@@ -93,24 +93,7 @@ function FilterGroup({
 
 export function FilterBar({ filters, onFilterChange, onExpandAll, onCollapseAll }: FilterBarProps) {
   return (
-    <div
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 10,
-        display: "flex",
-        gap: 14,
-        flexWrap: "wrap",
-        alignItems: "center",
-        background: "rgba(255,255,255,.97)",
-        backdropFilter: "blur(4px)",
-        border: "1px solid #e5e5e5",
-        borderRadius: 11,
-        padding: "10px 14px",
-        marginBottom: 14,
-        boxShadow: "0 1px 4px rgba(0,0,0,.06)",
-      }}
-    >
+    <div className="responsive-filter-bar">
       <FilterGroup
         label="Quận:"
         items={AREAS}

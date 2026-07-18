@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Issue, BookingStatus } from "@/types/issue";
+import { ImageUploader } from "./ImageUploader";
+import { SuggestionTags } from "./SuggestionTags";
 
 // ── Badge helpers ────────────────────────────────────────────────────────────
 
@@ -55,22 +57,48 @@ interface IssueCardProps {
   isOpen: boolean;
   onToggle: () => void;
   onSave: (id: string, newStatus: BookingStatus, newNotes: string, newImages: string[]) => void;
+  onDelete: (id: string) => void;
+  issues: Issue[];
+  onNavigateToIssue: (id: string) => void;
 }
 
-export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
+export function IssueCard({ issue, isOpen, onToggle, onSave, onDelete, issues, onNavigateToIssue }: IssueCardProps) {
   const [devStatus, setDevStatus] = useState<BookingStatus>(issue.status);
   const [devNotes, setDevNotes] = useState(issue.devNotes ?? "");
-  const [devImages, setDevImages] = useState(issue.images?.join(", ") ?? "");
+  const [devImages, setDevImages] = useState<string[]>(
+    Array.isArray(issue.images)
+      ? issue.images
+      : typeof issue.images === "string"
+      ? (issue.images as string).split(",").map((img) => img.trim()).filter(Boolean)
+      : []
+  );
   const [savedMsg, setSavedMsg] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
-  const groups = issue.groupType.split(",").map((g) => g.trim()).filter(Boolean);
-  const imageUrls = devImages.split(",").map((img) => img.trim()).filter(Boolean);
+  const groups = issue.groupType ? issue.groupType.split(",").map((g) => g.trim()).filter(Boolean) : [];
 
   function handleSave() {
-    onSave(issue.id, devStatus, devNotes, imageUrls);
+    onSave(issue.id, devStatus, devNotes, devImages);
     setSavedMsg(true);
     setTimeout(() => setSavedMsg(false), 2500);
   }
+
+  // Find related places (same area and matching groupType)
+  const relatedPlaces = issues
+    ? issues.filter(
+        (i) =>
+          i.id !== issue.id &&
+          i.area === issue.area &&
+          i.groupType &&
+          issue.groupType &&
+          i.groupType.split(",").some((g) => issue.groupType.includes(g.trim()))
+      )
+      .slice(0, 3)
+    : [];
+
+  const handleSelectTag = (tag: string) => {
+    setDevNotes((prev) => (prev ? `${prev} ${tag}` : tag));
+  };
 
   return (
     <div
@@ -104,9 +132,9 @@ export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
       {/* Body */}
       {isOpen && (
         <div style={{ borderTop: "1px solid #f0f0f0", padding: "14px 14px 16px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
+          <div className="responsive-card-layout">
             {/* Left — Info & Admin Action */}
-            <div>
+            <div className="left-col">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 {[
                   { label: "Quận", value: issue.area },
@@ -139,6 +167,44 @@ export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
                 </div>
               )}
 
+              {/* Related Places */}
+              {relatedPlaces.length > 0 && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10.5, textTransform: "uppercase" as const, letterSpacing: ".04em", color: "#999", marginBottom: 5, fontWeight: 600 }}>📍 Quán ăn tương tự gần đó</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {relatedPlaces.map((rp) => (
+                      <button
+                        key={rp.id}
+                        onClick={() => onNavigateToIssue(rp.id)}
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #ddd",
+                          borderRadius: 8,
+                          padding: "6px 10px",
+                          fontSize: 12,
+                          color: "#333",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          transition: "all 0.15s ease",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "#ff7a00";
+                          e.currentTarget.style.background = "#fffaf0";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = "#ddd";
+                          e.currentTarget.style.background = "#fff";
+                        }}
+                      >
+                        <div style={{ fontWeight: 600 }}>{rp.page}</div>
+                        <div style={{ fontSize: 10.5, color: "#777" }}>{rp.title.slice(0, 30)}...</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Admin Box inside Left Column */}
               <div style={{ background: "#fafafa", border: "1px solid #ececec", borderRadius: 9, padding: 12, marginTop: 14 }}>
                 <div style={{ fontSize: 11, textTransform: "uppercase" as const, letterSpacing: ".04em", color: "#999", marginBottom: 8, fontWeight: 600 }}>Phần dành cho Admin</div>
@@ -161,66 +227,69 @@ export function IssueCard({ issue, isOpen, onToggle, onSave }: IssueCardProps) {
                     placeholder="Ghi chú của admin hoặc phản hồi..."
                     style={{ width: "100%", minHeight: 60, resize: "vertical", fontSize: 13, padding: "7px 9px", border: "1px solid #ddd", borderRadius: 6, fontFamily: "inherit", background: "#fff", boxSizing: "border-box", color: "#222" }}
                   />
+                  {/* Suggestion tags for admin notes based on issue satisfaction */}
+                  <SuggestionTags priority={issue.priority} onSelectTag={handleSelectTag} />
                 </div>
-                {/* Image Input field */}
-                <div style={{ display: "flex", flexDirection: "column" as const, gap: 4, marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, color: "#666" }}>Đường dẫn hình ảnh (phân tách bằng dấu phẩy):</div>
-                  <input
-                    type="text"
-                    value={devImages}
-                    onChange={(e) => setDevImages(e.target.value)}
-                    placeholder="https://image1.jpg, https://image2.jpg"
-                    style={{ width: "100%", fontSize: 13, padding: "7px 9px", border: "1px solid #ddd", borderRadius: 6, fontFamily: "inherit", background: "#fff", boxSizing: "border-box", color: "#222" }}
-                  />
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button
-                    onClick={handleSave}
-                    style={{ background: "#111", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#333")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "#111")}
-                  >
-                    💾 Lưu
-                  </button>
-                  {savedMsg && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>✓ Đã lưu</span>}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <button
+                      onClick={handleSave}
+                      style={{ background: "#111", color: "#fff", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 13, cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#333")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      💾 Lưu
+                    </button>
+                    {savedMsg && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>✓ Đã lưu</span>}
+                  </div>
+
+                  {/* Delete section with inside-card confirmation */}
+                  {!isConfirmingDelete ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDelete(true)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#dc2626",
+                        fontSize: 12.5,
+                        cursor: "pointer",
+                        fontWeight: 600,
+                        fontFamily: "inherit",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      🗑️ Xóa địa điểm
+                    </button>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#fef2f2", border: "1px solid #fecaca", padding: "4px 8px", borderRadius: 6 }}>
+                      <span style={{ fontSize: 11.5, color: "#dc2626", fontWeight: 500 }}>Thực sự xóa?</span>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(issue.id)}
+                        style={{ background: "#dc2626", color: "#fff", border: "none", padding: "2px 6px", borderRadius: 4, fontSize: 11, cursor: "pointer", fontWeight: 600 }}
+                      >
+                        Có
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsConfirmingDelete(false)}
+                        style={{ background: "#e4e4e7", color: "#52525b", border: "none", padding: "2px 6px", borderRadius: 4, fontSize: 11, cursor: "pointer", fontWeight: 600 }}
+                      >
+                        Không
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Right — Image display column */}
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-              <div style={{ fontSize: 10.5, textTransform: "uppercase" as const, letterSpacing: ".04em", color: "#999", fontWeight: 600 }}>Hình ảnh quán ăn</div>
-              {imageUrls.length > 0 ? (
-                <div style={{ display: "grid", gridTemplateColumns: imageUrls.length > 1 ? "1fr 1fr" : "1fr", gap: 10 }}>
-                  {imageUrls.map((url, index) => (
-                    <div key={index} style={{ border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden", background: "#f9f9f9" }}>
-                      <img
-                        src={url}
-                        alt={`Hình ảnh ${index + 1}`}
-                        style={{ width: "100%", height: "auto", display: "block", maxHeight: 180, objectFit: "cover" }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    color: "#888",
-                    fontSize: 13,
-                    padding: "30px 18px",
-                    textAlign: "center",
-                    border: "1px dashed #ddd",
-                    borderRadius: 8,
-                    background: "#fafafa",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flex: 1,
-                  }}
-                >
-                  — chưa có hình ảnh —
-                </div>
-              )}
+            {/* Right — Image display and edit column */}
+            <div className="right-col" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 10.5, textTransform: "uppercase" as const, letterSpacing: ".04em", color: "#999", fontWeight: 600 }}>Quản lý hình ảnh</div>
+              <ImageUploader images={devImages} onChange={setDevImages} />
             </div>
           </div>
         </div>

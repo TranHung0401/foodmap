@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Issue, RestaurantSatisfaction, BookingStatus } from "@/types/issue";
+import { ImageUploader } from "./ImageUploader";
+import { SuggestionTags } from "./SuggestionTags";
 
 interface AddPlaceDrawerProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface AddPlaceDrawerProps {
     description: string;
     images: string[];
   }) => void;
+  issues: Issue[];
 }
 
 const AREAS = [
@@ -39,7 +42,7 @@ const FOOD_GROUPS = [
   "Lẩu/Nướng",
 ];
 
-export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) {
+export function AddPlaceDrawer({ isOpen, onClose, onAdd, issues }: AddPlaceDrawerProps) {
   const [name, setName] = useState("");
   const [area, setArea] = useState(AREAS[0]);
   const [group, setGroup] = useState(FOOD_GROUPS[0]);
@@ -47,10 +50,14 @@ export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) 
   const [booking, setBooking] = useState<BookingStatus>("Không đặt bàn");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [imagesText, setImagesText] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
+
+  const isDuplicate = name.trim() !== "" && issues.some(
+    (item) => item.page.toLowerCase().trim() === name.toLowerCase().trim()
+  );
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,11 +69,6 @@ export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) 
       setError("Vui lòng nhập nhận xét nổi bật!");
       return;
     }
-
-    const images = imagesText
-      .split(",")
-      .map((img) => img.trim())
-      .filter(Boolean);
 
     onAdd({
       page: name.trim(),
@@ -87,10 +89,14 @@ export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) 
     setBooking("Không đặt bàn");
     setTitle("");
     setDescription("");
-    setImagesText("");
+    setImages([]);
     setError("");
     onClose();
   }
+
+  const handleSelectTag = (tag: string) => {
+    setDescription((prev) => (prev ? `${prev} ${tag}` : tag));
+  };
 
   return (
     <>
@@ -190,12 +196,17 @@ export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) 
               placeholder="Ví dụ: Cơm Tấm Thuận Kiều"
               style={{
                 padding: "8px 12px",
-                border: "1px solid #ddd",
+                border: isDuplicate ? "1px solid #eab308" : "1px solid #ddd",
                 borderRadius: 7,
                 fontSize: 13.5,
                 fontFamily: "inherit",
               }}
             />
+            {isDuplicate && (
+              <div style={{ fontSize: 12, color: "#eab308", fontWeight: 500, marginTop: 2 }}>
+                ⚠️ Tên quán này đã tồn tại trong danh sách!
+              </div>
+            )}
           </div>
 
           {/* Quận & Phân Loại (Grid) */}
@@ -327,24 +338,14 @@ export function AddPlaceDrawer({ isOpen, onClose, onAdd }: AddPlaceDrawerProps) 
                 resize: "vertical",
               }}
             />
+            {/* Suggestion tags based on satisfaction */}
+            <SuggestionTags priority={satisfaction} onSelectTag={handleSelectTag} />
           </div>
 
-          {/* Đường dẫn hình ảnh */}
+          {/* Hình ảnh */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>URL HÌNH ẢNH (PHÂN TÁCH BẰNG DẤU PHẨY)</label>
-            <input
-              type="text"
-              value={imagesText}
-              onChange={(e) => setImagesText(e.target.value)}
-              placeholder="Ví dụ: https://image1.jpg, https://image2.jpg"
-              style={{
-                padding: "8px 12px",
-                border: "1px solid #ddd",
-                borderRadius: 7,
-                fontSize: 13.5,
-                fontFamily: "inherit",
-              }}
-            />
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>HÌNH ẢNH QUÁN ĂN</label>
+            <ImageUploader images={images} onChange={setImages} />
           </div>
 
           {/* Buttons Footer */}

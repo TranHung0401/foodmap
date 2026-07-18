@@ -10,6 +10,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FoodMap - Khám phá ẩm thực",
   description: "Ăn gì? Ở đâu? FoodMap biết hết.",
+  other: {
+    "format-detection": "telephone=no",
+  },
 };
 
 export default function RootLayout({
@@ -21,8 +24,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
